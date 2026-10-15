@@ -22,44 +22,45 @@ object SystemControlManager {
      */
     fun executeCommand(context: Context, prompt: String): SystemControlResult? {
         val trimmed = prompt.trim().lowercase().replace(Regex("[?!.]+$"), "").trim()
+        if (trimmed.isBlank()) return null
 
         // 1. Wi-Fi commands
         if (trimmed.contains("wifi") || trimmed.contains("wi-fi") || trimmed.contains("wi fi")) {
-            if (trimmed.contains("on") || trimmed.contains("chalu") || trimmed.contains("karo") || trimmed.contains("enable") || trimmed.contains("start")) {
-                return toggleWifi(context, true)
-            } else if (trimmed.contains("off") || trimmed.contains("bandh") || trimmed.contains("disable") || trimmed.contains("stop")) {
-                return toggleWifi(context, false)
-            } else if (trimmed.contains("settings") || trimmed.contains("khol") || trimmed.contains("open")) {
-                return openPanel(context, Settings.ACTION_WIFI_SETTINGS, "Wi-Fi settings khol raha hoon.")
+            return when {
+                isOffCommand(trimmed) -> toggleWifi(context, false)
+                isOnCommand(trimmed) -> toggleWifi(context, true)
+                isSettingsCommand(trimmed) -> openPanel(context, Settings.ACTION_WIFI_SETTINGS, "Wi-Fi settings khol raha hoon.")
+                else -> null
             }
         }
 
         // 2. Mobile Data commands
-        if (trimmed.contains("mobile data") || trimmed.contains("cellular") || trimmed.contains("data")) {
-            if (trimmed.contains("on") || trimmed.contains("off") || trimmed.contains("chalu") || trimmed.contains("bandh") || trimmed.contains("enable") || trimmed.contains("disable")) {
-                return openPanel(
+        if (trimmed.contains("mobile data") || trimmed.contains("cellular data") || trimmed.contains("cellular") || trimmed.contains("mobiledata")) {
+            return when {
+                isOffCommand(trimmed) || isOnCommand(trimmed) -> openPanel(
                     context,
                     Settings.ACTION_DATA_ROAMING_SETTINGS,
-                    "Android security restrictions prevent direct toggling of Mobile Data. Opening Internet & Network settings panel..."
+                    "Android security restrictions prevent direct toggling of Mobile Data. Opening Network & Internet settings..."
                 )
-            } else if (trimmed.contains("settings") || trimmed.contains("khol") || trimmed.contains("open")) {
-                return openPanel(context, Settings.ACTION_WIRELESS_SETTINGS, "Wireless settings khol raha hoon.")
+                isSettingsCommand(trimmed) -> openPanel(context, Settings.ACTION_WIRELESS_SETTINGS, "Wireless settings khol raha hoon.")
+                else -> null
             }
         }
 
         // 3. Bluetooth commands
-        if (trimmed.contains("bluetooth")) {
-            if (trimmed.contains("on") || trimmed.contains("off") || trimmed.contains("chalu") || trimmed.contains("bandh") || trimmed.contains("enable") || trimmed.contains("disable") || trimmed.contains("khol") || trimmed.contains("open")) {
-                return openBluetooth(context)
+        if (trimmed.contains("bluetooth") || trimmed.contains("bt ")) {
+            return when {
+                isOffCommand(trimmed) || isOnCommand(trimmed) || isSettingsCommand(trimmed) -> openBluetooth(context)
+                else -> null
             }
         }
 
         // 4. Torch / Flashlight commands
         if (trimmed.contains("torch") || trimmed.contains("flashlight") || trimmed.contains("flash light") || trimmed.contains("flash")) {
-            if (trimmed.contains("on") || trimmed.contains("chalu") || trimmed.contains("enable") || trimmed.contains("start") || trimmed.contains("jala") || trimmed.contains("on karo")) {
-                return toggleTorch(context, true)
-            } else if (trimmed.contains("off") || trimmed.contains("bandh") || trimmed.contains("disable") || trimmed.contains("stop") || trimmed.contains("bujha") || trimmed.contains("off karo")) {
-                return toggleTorch(context, false)
+            return when {
+                isOffCommand(trimmed) -> toggleTorch(context, false)
+                isOnCommand(trimmed) -> toggleTorch(context, true)
+                else -> null
             }
         }
 
@@ -71,11 +72,29 @@ object SystemControlManager {
 
         // 6. Quick Settings commands
         if (trimmed.contains("quick settings") || trimmed.contains("quick panel") || trimmed.contains("status bar")) {
-            val intent = Intent(Settings.ACTION_SETTINGS)
-            return launchIntentSafely(context, intent, "System Settings khol raha hoon.")
+            return openQuickSettings(context)
         }
 
         return null
+    }
+
+    private fun isOffCommand(text: String): Boolean {
+        val tokens = text.split(" ", "-", "_", "/")
+        val offKeywords = setOf("off", "band", "bandh", "disable", "stop", "bujha", "bujhao", "close")
+        if (tokens.any { it in offKeywords }) return true
+        return text.contains(" off") || text.contains("bandh") || text.contains("bujha")
+    }
+
+    private fun isOnCommand(text: String): Boolean {
+        if (isOffCommand(text)) return false
+        val tokens = text.split(" ", "-", "_", "/")
+        val onKeywords = setOf("on", "chalu", "enable", "start", "jala", "jalao", "chalao")
+        if (tokens.any { it in onKeywords }) return true
+        return text.contains(" chalu") || text.contains("jala") || text.contains("on karo")
+    }
+
+    private fun isSettingsCommand(text: String): Boolean {
+        return text.contains("settings") || text.contains("khol") || text.contains("open") || text.contains("panel")
     }
 
     private fun toggleWifi(context: Context, enable: Boolean): SystemControlResult {
@@ -113,6 +132,21 @@ object SystemControlManager {
     private fun openBluetooth(context: Context): SystemControlResult {
         val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
         return launchIntentSafely(context, intent, "Bluetooth settings khol raha hoon.")
+    }
+
+    private fun openQuickSettings(context: Context): SystemControlResult {
+        return try {
+            val statusBarService = context.getSystemService("statusbar")
+            if (statusBarService != null) {
+                val method = statusBarService.javaClass.getMethod("expandSettingsPanel")
+                method.invoke(statusBarService)
+                SystemControlResult.ActionExecuted("Quick Settings panel expanded.")
+            } else {
+                openPanel(context, Settings.ACTION_SETTINGS, "Opening System Settings...")
+            }
+        } catch (e: Exception) {
+            openPanel(context, Settings.ACTION_SETTINGS, "Opening System Settings panel...")
+        }
     }
 
     private fun toggleTorch(context: Context, enable: Boolean): SystemControlResult {

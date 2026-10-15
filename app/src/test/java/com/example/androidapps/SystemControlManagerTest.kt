@@ -2,7 +2,9 @@ package com.example.androidapps
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -22,42 +24,66 @@ class SystemControlManagerTest {
     }
 
     @Test
-    fun testWifiCommands() {
-        val resOn = SystemControlManager.executeCommand(context, "Wi-Fi on karo")
-        assertNotNull(resOn)
+    fun testWifiCommandOnAndOffPriority() {
+        // ON intent
+        val resOn1 = SystemControlManager.executeCommand(context, "Wi-Fi on karo")
+        assertNotNull(resOn1)
 
-        val resOff = SystemControlManager.executeCommand(context, "Wi-Fi off karo")
-        assertNotNull(resOff)
+        val resOn2 = SystemControlManager.executeCommand(context, "Wi-Fi chalu karo")
+        assertNotNull(resOn2)
 
+        // OFF intent (MUST evaluate to OFF even though "karo" is present)
+        val resOff1 = SystemControlManager.executeCommand(context, "Wi-Fi off karo")
+        assertNotNull(resOff1)
+
+        val resOff2 = SystemControlManager.executeCommand(context, "Wi-Fi band karo")
+        assertNotNull(resOff2)
+
+        // Settings intent
         val resSet = SystemControlManager.executeCommand(context, "Wi-Fi settings kholo")
         assertNotNull(resSet)
         assertTrue(resSet is SystemControlResult.PanelOpened)
+        assertEquals("Wi-Fi settings khol raha hoon.", (resSet as SystemControlResult.PanelOpened).message)
     }
 
     @Test
     fun testMobileDataCommands() {
         val resOn = SystemControlManager.executeCommand(context, "Mobile data on karo")
         assertNotNull(resOn)
-        assertTrue(resOn is SystemControlResult.PanelOpened) // Restricted on Android 21+, opens settings panel
+        assertTrue(resOn is SystemControlResult.PanelOpened)
 
-        val resOff = SystemControlManager.executeCommand(context, "Mobile data off karo")
+        val resOff = SystemControlManager.executeCommand(context, "Mobile data band karo")
         assertNotNull(resOff)
+        assertTrue(resOff is SystemControlResult.PanelOpened)
     }
 
     @Test
     fun testBluetoothCommands() {
-        val res = SystemControlManager.executeCommand(context, "Bluetooth on karo")
-        assertNotNull(res)
-        assertTrue(res is SystemControlResult.PanelOpened)
+        val resOn = SystemControlManager.executeCommand(context, "Bluetooth on karo")
+        assertNotNull(resOn)
+        assertTrue(resOn is SystemControlResult.PanelOpened)
+
+        val resSettings = SystemControlManager.executeCommand(context, "Bluetooth settings kholo")
+        assertNotNull(resSettings)
+        assertTrue(resSettings is SystemControlResult.PanelOpened)
     }
 
     @Test
-    fn testTorchCommands() {
-        val resOn = SystemControlManager.executeCommand(context, "Torch on karo")
-        assertNotNull(resOn)
+    fun testTorchCommandVariants() {
+        val resOn1 = SystemControlManager.executeCommand(context, "Torch on karo")
+        assertNotNull(resOn1)
 
-        val resOff = SystemControlManager.executeCommand(context, "Torch off karo")
-        assertNotNull(resOff)
+        val resOn2 = SystemControlManager.executeCommand(context, "Torch jalao")
+        assertNotNull(resOn2)
+
+        val resOff1 = SystemControlManager.executeCommand(context, "Torch off karo")
+        assertNotNull(resOff1)
+
+        val resOff2 = SystemControlManager.executeCommand(context, "Torch bujhao")
+        assertNotNull(resOff2)
+
+        val resOff3 = SystemControlManager.executeCommand(context, "Torch band karo")
+        assertNotNull(resOff3)
     }
 
     @Test
@@ -68,6 +94,17 @@ class SystemControlManagerTest {
 
         val resQuick = SystemControlManager.executeCommand(context, "Quick settings kholo")
         assertNotNull(resQuick)
-        assertTrue(resQuick is SystemControlResult.PanelOpened)
+    }
+
+    @Test
+    fun testUnknownAndAmbiguousCommandsReturnNull() {
+        val resUnknown1 = SystemControlManager.executeCommand(context, "Play some music")
+        assertNull(resUnknown1)
+
+        val resUnknown2 = SystemControlManager.executeCommand(context, "Kholo")
+        assertNull(resUnknown2)
+
+        val resUnknown3 = SystemControlManager.executeCommand(context, "What is Wi-Fi?")
+        assertNull(resUnknown3)
     }
 }
