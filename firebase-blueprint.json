@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information and account metadata",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "photoUrl": { "type": "string", "description": "Avatar photo URL" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["userId", "createdAt", "updatedAt"]
+    },
+    "CloudConversation": {
+      "title": "CloudConversation",
+      "description": "Synced conversation metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Conversation ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "title": { "type": "string", "description": "Conversation title" },
+        "modelId": { "type": "string", "description": "Active intelligence model ID" },
+        "isPinned": { "type": "boolean", "description": "Whether conversation is pinned" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["id", "userId", "title", "createdAt", "updatedAt"]
+    },
+    "CloudMessage": {
+      "title": "CloudMessage",
+      "description": "Synced message within a conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Message ID" },
+        "conversationId": { "type": "string", "description": "Parent conversation ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "role": { "type": "string", "description": "Message role e.g. user, assistant, system" },
+        "content": { "type": "string", "description": "Message text content" },
+        "modelId": { "type": "string", "description": "Model ID used for generation" },
+        "status": { "type": "string", "description": "Message status" },
+        "attachmentUrl": { "type": "string", "description": "Storage URL or reference" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp" }
+      },
+      "required": ["id", "conversationId", "userId", "role", "content", "createdAt"]
+    },
+    "CloudMemory": {
+      "title": "CloudMemory",
+      "description": "User persistent memory fact or preference",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Memory ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "key": { "type": "string", "description": "Memory topic or key" },
+        "content": { "type": "string", "description": "Memory fact content" },
+        "category": { "type": "string", "description": "Category e.g. general, preference, custom" },
+        "isEnabled": { "type": "boolean", "description": "Whether memory is active" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp" }
+      },
+      "required": ["id", "userId", "key", "content", "createdAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Synced user preferences and cloud settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "theme": { "type": "string", "description": "Preferred UI theme" },
+        "defaultModel": { "type": "string", "description": "Default intelligence model" },
+        "highThinkingDefault": { "type": "boolean", "description": "Whether high thinking is default" },
+        "cloudSyncEnabled": { "type": "boolean", "description": "Cloud synchronization switch" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["userId", "updatedAt"]
+    },
+    "CloudAttachment": {
+      "title": "CloudAttachment",
+      "description": "Metadata for attachments stored in Firebase Storage",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Attachment ID" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "conversationId": { "type": "string", "description": "Associated conversation ID" },
+        "filename": { "type": "string", "description": "File name" },
+        "mimeType": { "type": "string", "description": "MIME type" },
+        "sizeBytes": { "type": "integer", "description": "Size in bytes" },
+        "storagePath": { "type": "string", "description": "Storage path" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp" }
+      },
+      "required": ["id", "userId", "filename", "storagePath", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User account profile and metadata"
+    },
+    "/users/{userId}/conversations/{conversationId}": {
+      "schema": "CloudConversation",
+      "description": "User conversation summaries"
+    },
+    "/users/{userId}/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "CloudMessage",
+      "description": "Messages belonging to a conversation"
+    },
+    "/users/{userId}/memories/{memoryId}": {
+      "schema": "CloudMemory",
+      "description": "User saved memory items"
+    },
+    "/users/{userId}/settings/{documentId}": {
+      "schema": "UserSettings",
+      "description": "User cloud preferences and toggles"
+    },
+    "/users/{userId}/attachments/{attachmentId}": {
+      "schema": "CloudAttachment",
+      "description": "User attachment records and storage links"
+    }
+  }
+}

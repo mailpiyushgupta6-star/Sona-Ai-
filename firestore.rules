@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validation helpers
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 256)) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 1024)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidConversation(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             (!('modelId' in data) || (data.modelId is string && data.modelId.size() <= 64)) &&
+             (!('isPinned' in data) || data.isPinned is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMessage(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.conversationId is string && data.conversationId.size() > 0 && data.conversationId.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.role is string && (data.role == 'user' || data.role == 'assistant' || data.role == 'system' || data.role == 'model') &&
+             data.content is string && data.content.size() <= 100000 &&
+             (!('modelId' in data) || (data.modelId is string && data.modelId.size() <= 64)) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 32)) &&
+             (!('attachmentUrl' in data) || (data.attachmentUrl is string && data.attachmentUrl.size() <= 2048)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidMemory(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.key is string && data.key.size() > 0 && data.key.size() <= 128 &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 5000 &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 64)) &&
+             (!('isEnabled' in data) || data.isEnabled is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidSettings(data) {
+      return data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             (!('theme' in data) || (data.theme is string && data.theme.size() <= 32)) &&
+             (!('defaultModel' in data) || (data.defaultModel is string && data.defaultModel.size() <= 64)) &&
+             (!('highThinkingDefault' in data) || data.highThinkingDefault is bool) &&
+             (!('cloudSyncEnabled' in data) || data.cloudSyncEnabled is bool) &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAttachment(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.filename is string && data.filename.size() > 0 && data.filename.size() <= 256 &&
+             data.storagePath is string && data.storagePath.size() > 0 && data.storagePath.size() <= 1024 &&
+             (!('conversationId' in data) || (data.conversationId is string && data.conversationId.size() <= 128)) &&
+             (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 128)) &&
+             (!('sizeBytes' in data) || data.sizeBytes is int) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // Collections
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(userId) &&
+                       incoming().userId == userId &&
+                       isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'photoUrl', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Conversations subcollection
+      match /conversations/{conversationId} {
+        allow get: if isOwner(userId) && isValidId(conversationId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(conversationId) &&
+                         incoming().userId == userId &&
+                         incoming().id == conversationId &&
+                         isValidConversation(incoming());
+        allow update: if isOwner(userId) && isValidId(conversationId) &&
+                         incoming().id == existing().id &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidConversation(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'modelId', 'isPinned', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(conversationId);
+
+        // Messages subcollection
+        match /messages/{messageId} {
+          allow get: if isOwner(userId) && isValidId(messageId);
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && isValidId(messageId) &&
+                           incoming().userId == userId &&
+                           incoming().conversationId == conversationId &&
+                           incoming().id == messageId &&
+                           isValidMessage(incoming());
+          allow update: if isOwner(userId) && isValidId(messageId) &&
+                           incoming().id == existing().id &&
+                           incoming().conversationId == existing().conversationId &&
+                           incoming().userId == existing().userId &&
+                           incoming().createdAt == existing().createdAt &&
+                           isValidMessage(incoming()) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['content', 'status', 'attachmentUrl', 'modelId']);
+          allow delete: if isOwner(userId) && isValidId(messageId);
+        }
+      }
+
+      // Memories subcollection
+      match /memories/{memoryId} {
+        allow get: if isOwner(userId) && isValidId(memoryId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(memoryId) &&
+                         incoming().userId == userId &&
+                         incoming().id == memoryId &&
+                         isValidMemory(incoming());
+        allow update: if isOwner(userId) && isValidId(memoryId) &&
+                         incoming().id == existing().id &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidMemory(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['key', 'content', 'category', 'isEnabled']);
+        allow delete: if isOwner(userId) && isValidId(memoryId);
+      }
+
+      // Settings subcollection
+      match /settings/{documentId} {
+        allow get: if isOwner(userId) && isValidId(documentId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(documentId) &&
+                         incoming().userId == userId &&
+                         isValidSettings(incoming());
+        allow update: if isOwner(userId) && isValidId(documentId) &&
+                         incoming().userId == existing().userId &&
+                         isValidSettings(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['theme', 'defaultModel', 'highThinkingDefault', 'cloudSyncEnabled', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(documentId);
+      }
+
+      // Attachments subcollection
+      match /attachments/{attachmentId} {
+        allow get: if isOwner(userId) && isValidId(attachmentId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(attachmentId) &&
+                         incoming().userId == userId &&
+                         incoming().id == attachmentId &&
+                         isValidAttachment(incoming());
+        allow update: if isOwner(userId) && isValidId(attachmentId) &&
+                         incoming().id == existing().id &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidAttachment(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['filename', 'storagePath', 'conversationId', 'mimeType', 'sizeBytes']);
+        allow delete: if isOwner(userId) && isValidId(attachmentId);
+      }
+    }
+  }
+}

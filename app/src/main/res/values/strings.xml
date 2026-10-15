@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Sona AI</string>
+    <string name="app_subtitle">Native Android Intelligence</string>
+    <string name="chat_placeholder">Ask Sona anything…</string>
+    <string name="new_chat">New Chat</string>
+    <string name="search_conversations">Search conversations…</string>
+    <string name="settings_title">Settings</string>
+    <string name="diagnostics_title">System Diagnostics</string>
+    <string name="permissions_title">Permissions &amp; Capabilities</string>
+    <string name="clear_history">Clear Chat History</string>
+    <string name="stop_generating">Stop Generating</string>
+</resources>

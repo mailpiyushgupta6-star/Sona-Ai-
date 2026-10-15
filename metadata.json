@@ -1,0 +1,6 @@
+{
+  "name": "Sona AI",
+  "description": "Native Android AI assistant with persistent memory, streaming chat, and device integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
